@@ -20,7 +20,9 @@ Verification: an isolated in-memory check (`PYTHONPATH=. .venv/bin/python /tmp/c
 
 ## Comment 3 — Missing test
 
-Pending.
+test_add_to_watchlist_nonexistent_film_raises in tests/test_watchlist.py follows test_add_to_collection_nonexistent_film_raises in tests/test_collection.py. It reuses the isolated in-memory app and sample_user fixtures and pytest.raises(FilmNotFoundError), passes the absent well-formed UUID 00000000-0000-0000-0000-000000000000, and asserts no watchlist entry was created. No existing tests were overwritten.
+
+`.venv/bin/python -m pytest tests/test_watchlist.py -v`: exit 0, 1 passed. `.venv/bin/python -m pytest tests/ -v`: exit 0, 5 passed. These are pre-rebase results; UUID compatibility will be verified again after the real rebase.
 
 ## Comment 4 — Default visibility
 
