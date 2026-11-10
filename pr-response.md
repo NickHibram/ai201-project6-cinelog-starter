@@ -4,7 +4,9 @@
 
 ## Comment 1 — Rename
 
-Pending.
+Renamed the service definition in services/watchlist_service.py and both the import and add_film route call in routes/watchlist/watchlist.py. Before editing, project-wide `rg -n 'save_to_watchlist|add_to_watchlist' .` found these three executable references and no watchlist tests. After editing, the same search restricted to `--glob '*.py'` found only the three new-name references; no obsolete executable references remain. Old names here describe historical work.
+
+Verification: `.venv/bin/python -m pytest tests/ -v`, exit 0, 4 passed.
 
 ## Comment 2 — Deduplication
 
