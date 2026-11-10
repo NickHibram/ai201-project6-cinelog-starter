@@ -10,7 +10,13 @@ Verification: `.venv/bin/python -m pytest tests/ -v`, exit 0, 4 passed.
 
 ## Comment 2 — Deduplication
 
-Pending.
+add_to_collection() validates the film first, then looks up CollectionEntry by both user_id and film_id using first(). A match raises AlreadyInCollectionError; it does not return or modify the existing entry. Successful additions commit and return the new entry.
+
+The deduplication implementation was AI-assisted.
+
+The analogous WatchlistEntry lookup raises AlreadyOnWatchlistError for the same user/film. Visibility and date_added remain unchanged. Other users can add that film. The route maps duplicates to JSON 409 and missing films to JSON 404, matching collection conventions.
+
+Verification: an isolated in-memory check (`PYTHONPATH=. .venv/bin/python /tmp/cinelog_dedup_check.py`) passed duplicate exception, single-entry count, unchanged metadata, independent users, and HTTP 409/404 assertions (exit 0). `.venv/bin/python -m pytest tests/ -v`: exit 0, 4 passed. Dedicated committed edge tests follow separately.
 
 ## Comment 3 — Missing test
 
