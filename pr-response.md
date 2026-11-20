@@ -2,6 +2,12 @@
 
 ## AI Usage
 
+**Instance 1 — deciding the watchlist visibility default**
+
+- *What I gave the AI:* The reviewer's question about the existing public default, the context of CineLog as a community film app, and my position that privacy matters and users should explicitly choose to share.
+- *What it produced:* A comparison of private and public defaults, suggested PR wording, and a check of the API that showed `public` is stored and returned while the list endpoint serves entries with either value.
+- *What I changed or directed:* I chose `public: false` for new entries and asked the AI to implement and test that default. I kept my opt-in sharing rationale and used the AI critique to clarify that the flag records a visibility preference and that enforcing it would require requester identity and access checks.
+
 ## Comment 1 — Rename
 
 Renamed the service definition in services/watchlist_service.py and both the import and add_film route call in routes/watchlist/watchlist.py. Before editing, project-wide `rg -n 'save_to_watchlist|add_to_watchlist' .` found these three executable references and no watchlist tests. After editing, the same search restricted to `--glob '*.py'` found only the three new-name references; no obsolete executable references remain. Old names here describe historical work.
@@ -26,7 +32,11 @@ test_add_to_watchlist_nonexistent_film_raises in tests/test_watchlist.py follows
 
 ## Comment 4 — Default visibility
 
-Pending.
+I chose `public: false` for new watchlist entries. CineLog is a community app where users log watched films, rate them, and build collections. Saving a film for later can also be a personal planning task, so a save should record a private preference unless the user chooses to share. A public default would make it easier to discover films through other people's lists. I prefer opt-in sharing because it gives people a choice about whether a new save is marked public.
+
+AI critique helped distinguish the stored preference from access control. The model now defaults new entries to false, and `POST /watchlist/<user_id>/add` inherits that default. `GET /watchlist/<user_id>` returns the saved flag and includes entries with either value. Enforcing visibility would require requester identity and access checks.
+
+`test_watchlist_add_defaults_visibility_to_false` checks that POST returns 201 with `public: false` when the field is omitted and that GET returns the saved flag. The test initially failed because POST returned `true`. After the change, `.venv/bin/python -m pytest tests/test_watchlist.py -v` passed both tests and `.venv/bin/python -m pytest tests/ -v` passed all six tests, both with exit 0.
 
 ## Comment 5 — Sort order
 
