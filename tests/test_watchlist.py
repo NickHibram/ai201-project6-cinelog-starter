@@ -32,6 +32,36 @@ def test_watchlist_add_defaults_visibility_to_false(app, sample_user, sample_fil
     assert [film["public"] for film in listed.get_json()] == [False]
 
 
+def test_watchlist_add_accepts_uppercase_film_uuid(app, sample_user):
+    film_id = "ac0322c5-19ae-4f40-8666-6a5202db8b8d"
+    with app.app_context():
+        db.session.add(Film(id=film_id, title="Alien"))
+        db.session.commit()
+
+    added = app.test_client().post(
+        f"/watchlist/{sample_user}/add", json={"film_id": film_id.upper()}
+    )
+
+    assert added.status_code == 201
+    assert added.get_json()["film_id"] == film_id
+
+
+@pytest.mark.parametrize(("film_id", "expected_status"), [
+    (1, 400),
+    ("not-a-uuid", 400),
+    ("00000000-0000-0000-0000-000000000000", 404),
+])
+def test_watchlist_add_distinguishes_invalid_and_absent_film_ids(
+    app, sample_user, film_id, expected_status
+):
+    response = app.test_client().post(
+        f"/watchlist/{sample_user}/add", json={"film_id": film_id}
+    )
+
+    assert response.status_code == expected_status
+    assert "error" in response.get_json()
+
+
 def test_watchlist_lists_newest_additions_first(app, sample_user):
     with app.app_context():
         alien = Film(title="Alien", year=1979)
