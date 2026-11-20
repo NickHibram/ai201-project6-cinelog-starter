@@ -1,7 +1,10 @@
-"""Watchlist service regression tests using the collection test fixtures."""
+"""Watchlist regression tests using the collection test fixtures."""
+
+from datetime import datetime
 
 import pytest
-from models import WatchlistEntry
+from app import db
+from models import Film, WatchlistEntry
 from services.watchlist_service import add_to_watchlist
 from services.collection_service import FilmNotFoundError
 from tests.test_collection import app, sample_film, sample_user
@@ -27,3 +30,38 @@ def test_watchlist_add_defaults_visibility_to_false(app, sample_user, sample_fil
     listed = client.get(watchlist_url)
     assert listed.status_code == 200
     assert [film["public"] for film in listed.get_json()] == [False]
+
+
+def test_watchlist_lists_newest_additions_first(app, sample_user):
+    with app.app_context():
+        alien = Film(title="Alien", year=1979)
+        blade_runner = Film(title="Blade Runner", year=1982)
+        solaris = Film(title="Solaris", year=1972)
+        db.session.add_all([alien, blade_runner, solaris])
+        db.session.flush()
+
+        # Insert the tied entries out of ID order.
+        earlier = datetime(2026, 1, 1)
+        later = datetime(2026, 1, 2)
+        db.session.add_all([
+            WatchlistEntry(
+                id="00000000-0000-4000-8000-000000000002",
+                user_id=sample_user, film_id=blade_runner.id, date_added=later,
+            ),
+            WatchlistEntry(
+                id="00000000-0000-4000-8000-000000000000",
+                user_id=sample_user, film_id=alien.id, date_added=earlier,
+            ),
+            WatchlistEntry(
+                id="00000000-0000-4000-8000-000000000001",
+                user_id=sample_user, film_id=solaris.id, date_added=later,
+            ),
+        ])
+        db.session.commit()
+
+    listed = app.test_client().get(f"/watchlist/{sample_user}")
+
+    assert listed.status_code == 200
+    assert [film["title"] for film in listed.get_json()] == [
+        "Solaris", "Blade Runner", "Alien",
+    ]
