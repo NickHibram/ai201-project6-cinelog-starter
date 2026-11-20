@@ -8,6 +8,12 @@
 - *What it produced:* A comparison of private and public defaults, suggested PR wording, and a check of the API that showed `public` is stored and returned while the list endpoint serves entries with either value.
 - *What I changed or directed:* I chose `public: false` for new entries and asked the AI to implement and test that default. I kept my opt-in sharing rationale and used the AI critique to clarify that the flag records a visibility preference and that enforcing it would require requester identity and access checks.
 
+**Instance 2 — deciding the watchlist sort order**
+
+- *What I gave the AI:* My stack analogy and my goal of showing the films I added most recently at the top.
+- *What it produced:* Feedback that the analogy describes last in, first out for display order, suggested PR wording, and a comparison with alphabetical browsing. It also suggested sorting by the watchlist entry's addition time with a stable tie-breaker.
+- *What I changed or directed:* I confirmed newest-added first and asked the AI to implement it. I used the feedback to explain the choice in terms of finding a recent save and to acknowledge that alphabetical order helps when I already know the title.
+
 ## Comment 1 — Rename
 
 Renamed the service definition in services/watchlist_service.py and both the import and add_film route call in routes/watchlist/watchlist.py. Before editing, project-wide `rg -n 'save_to_watchlist|add_to_watchlist' .` found these three executable references and no watchlist tests. After editing, the same search restricted to `--glob '*.py'` found only the three new-name references; no obsolete executable references remain. Old names here describe historical work.
@@ -40,7 +46,11 @@ AI critique helped distinguish the stored preference from access control. The mo
 
 ## Comment 5 — Sort order
 
-Pending.
+I chose newest-added first so that when someone saves a film recommendation and returns to CineLog, they can find that film at the top of the watchlist. This supports the maintainer's point about seeing recent additions. Alphabetical order helps when someone already remembers a title and wants to find it in a long list. I prioritized returning to a recent save as the default task.
+
+`GET /watchlist/<user_id>` now orders by the watchlist entry's `date_added` descending, with entry ID ascending to break timestamp ties. AI critique helped turn my stack analogy into a precise display order and frame the argument around a concrete task without assuming how most users behave.
+
+`test_watchlist_lists_newest_additions_first` checks the GET response using film titles, release years, and save dates that produce different orders. It also checks the timestamp tie-breaker. The test failed against the old alphabetical order. After the change, `.venv/bin/python -m pytest tests/test_watchlist.py -v` passed all three watchlist tests and `.venv/bin/python -m pytest tests/ -v` passed all seven tests, both with exit 0.
 
 ## Comment 6 — Rebase
 
