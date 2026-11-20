@@ -72,7 +72,9 @@ I reviewed the diffs for the entire feature range and ran `git rebase -i origin/
 
 The feature history follows [CONTRIBUTING.md](CONTRIBUTING.md) and the [Conventional Commits format](https://www.conventionalcommits.org/en/v1.0.0/). `git merge-base --is-ancestor origin/main HEAD` returned 0. `git rev-list --merges origin/main..HEAD` and `git ls-files -u` printed nothing. `git diff --check origin/main..HEAD` passed. The code and tests match the pre-cleanup backup. The inherited `refactor:` commit is on `main`, outside the feature-only range.
 
-<!-- screenshot:pending -->
+![Terminal showing the cleaned watchlist commit history](evidence/watchlist-git-log.png)
+
+Captured at `3ee9d14` before the screenshot evidence commit. All 14 feature commits appear above `origin/main` (`57ec3f9`).
 
 ## PR Description
 
