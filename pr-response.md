@@ -28,13 +28,13 @@ The deduplication implementation was AI-assisted.
 
 The analogous WatchlistEntry lookup raises AlreadyOnWatchlistError for the same user/film. Visibility and date_added remain unchanged. Other users can add that film. The route maps duplicates to JSON 409 and missing films to JSON 404, matching collection conventions.
 
-Verification: an isolated in-memory check (`PYTHONPATH=. .venv/bin/python /tmp/cinelog_dedup_check.py`) passed duplicate exception, single-entry count, unchanged metadata, independent users, and HTTP 409/404 assertions (exit 0). `.venv/bin/python -m pytest tests/ -v`: exit 0, 4 passed. Dedicated committed edge tests follow separately.
+Verification: an isolated in-memory check passed duplicate exception, single-entry count, unchanged metadata, independent users, and HTTP 409/404 assertions. The full suite passed four tests at that stage. The final HTTP check also confirmed a duplicate returns 409 and leaves the original entry unchanged. The PR description below gives reproducible commands for that check.
 
 ## Comment 3 — Missing test
 
 test_add_to_watchlist_nonexistent_film_raises in tests/test_watchlist.py follows test_add_to_collection_nonexistent_film_raises in tests/test_collection.py. It reuses the isolated in-memory app and sample_user fixtures and pytest.raises(FilmNotFoundError), passes the absent well-formed UUID 00000000-0000-0000-0000-000000000000, and asserts no watchlist entry was created. No existing tests were overwritten.
 
-`.venv/bin/python -m pytest tests/test_watchlist.py -v`: exit 0, 1 passed. `.venv/bin/python -m pytest tests/ -v`: exit 0, 5 passed. These are pre-rebase results; UUID compatibility will be verified again after the real rebase.
+Before rebasing, the watchlist suite passed one test and the full suite passed five tests, both with exit 0. The same missing-film test passed again against the UUID schema in the final suite.
 
 ## Comment 4 — Default visibility
 
@@ -64,15 +64,67 @@ After rebasing, the existing full suite passed all seven tests. After the endpoi
 
 ## Stretch Features
 
-Pending.
+Deferred by choice. Removal, an additional committed duplicate test, and accepting an explicit `public` value on the add endpoint are outside this submission. The required deduplication behavior was verified over HTTP.
 
 ## Commit History
 
-Pending.
+I reviewed the diffs for the entire feature range and ran `git rebase -i origin/main`. The inherited watchlist introduction now has a `feat:` subject and includes the working blueprint import. The following lookup fix contains only the session-based film lookup changes. The ignore rules and baseline notes have distinct commits. The rename, deduplication, missing-film test, visibility default, sorting, and UUID compatibility changes retain their separate commits.
+
+The feature history follows [CONTRIBUTING.md](CONTRIBUTING.md) and the [Conventional Commits format](https://www.conventionalcommits.org/en/v1.0.0/). `git merge-base --is-ancestor origin/main HEAD` returned 0. `git rev-list --merges origin/main..HEAD` and `git ls-files -u` printed nothing. `git diff --check origin/main..HEAD` passed. The code and tests match the pre-cleanup backup. The inherited `refactor:` commit is on `main`, outside the feature-only range.
+
+<!-- screenshot:pending -->
 
 ## PR Description
 
-Pending.
+### Add and review saved films in CineLog
+
+CineLog users can save films they intend to watch and list their saved films by most recent addition. The add endpoint uses film UUIDs, reports missing films, and rejects a repeated save for the same user and film without changing the original entry.
+
+- **Default visibility.** New entries store `public: false` because saving a film can be a personal planning task. The flag records a visibility preference. The prototype list endpoint returns entries with either value and does not enforce access control.
+- **Default order.** The newest additions appear first so returning users can quickly find a recommendation they recently saved. Entries saved at the same timestamp are ordered by entry ID.
+
+### Manual API checks
+
+1. In the repository root, create or activate a virtual environment, install the requirements, and start Flask with a disposable SQLite database. `seed.py` inserts the demo `User` and catalog `Film` rows using the current schema. Copy the demo user UUID it prints. Keep this terminal running during the checks.
+
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   python -m pip install -r requirements.txt
+   cinelog_review_dir=$(mktemp -d /tmp/cinelog-review.XXXXXX)
+   export DATABASE_URL="sqlite:///$cinelog_review_dir/cinelog.db"
+   python seed.py
+   python -m flask --app app:create_app run --host 127.0.0.1 --port 5056
+   ```
+
+2. In a second terminal, list the films. Use the `id` values from the `Alien` and `The Godfather` rows, and the user UUID printed by the seed command.
+
+   ```bash
+   base=http://127.0.0.1:5056
+   curl -sS "$base/films/" | python3 -m json.tool
+
+   user_id='<demo user UUID>'
+   alien_id='<Alien film UUID>'
+   godfather_id='<The Godfather film UUID>'
+   watchlist="$base/watchlist/$user_id"
+
+   add_film() {
+       curl -si -H 'Content-Type: application/json' \
+           --data "{\"film_id\":\"$1\"}" "$watchlist/add"
+   }
+   ```
+
+3. Run `add_film "$alien_id"`, then `curl -si "$watchlist"`. The first request returns **201** with `film_id`, `date_added`, and `public: false` among the entry fields. The list returns **200** with one film, `Alien`, and its saved visibility and addition time. In the list response, `id` is the film UUID.
+4. Repeat `add_film "$alien_id"`, then list again. The add returns **409** with a JSON `error`. The list still contains one `Alien` entry with its original `date_added` and `public` values.
+5. Run `add_film 00000000-0000-0000-0000-000000000000`. This well-formed UUID is absent from the seeded catalog and returns **404** with a JSON `error`. Run `curl -si -H 'Content-Type: application/json' --data '{"film_id":1}' "$watchlist/add"` to verify that an integer returns **400** with `film_id must be a UUID string`.
+6. Run `add_film "$godfather_id"`, then `curl -si "$watchlist"`. The add returns **201**. The list returns **200** with `The Godfather` followed by `Alien`. That order differs from both title order and release year descending because `The Godfather` was saved later.
+
+The requests and response assertions were exercised over HTTP against a temporary Flask server with a freshly seeded SQLite database. The shell commands above reproduce those checks.
+
+### Automated verification
+
+- `.venv/bin/python -m pytest tests/test_watchlist.py -v` — 7 passed, exit 0.
+- `.venv/bin/python -m pytest tests/ -v` — 11 passed, exit 0.
 
 ## Baseline and source review
 
